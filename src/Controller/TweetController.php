@@ -3,8 +3,10 @@
 namespace Twitter\Controller;
 
 use PDO;
+use Twitter\Http\Request;
 use Twitter\Http\Response;
 use Twitter\Model\TweetModel;
+use Twitter\Validation\RequestValidator;
 
 /**
  * DEUXIEME ENSEIGNEMENT : INVERSION DE CONTRÔLE ET INJECTION DE DEPENDANCES
@@ -28,15 +30,24 @@ class TweetController
 {
     protected PDO $pdo;
     protected TweetModel $model;
+    protected array $requiredFields = [
+        'author', 'content'
+    ];
+    protected RequestValidator $requestValidator;
 
-    public function __construct(TweetModel $model)
+    public function __construct(TweetModel $model, RequestValidator $requestValidator)
     {
         $this->model = $model;
+        $this->requestValidator = $requestValidator;
     }
 
-    public function saveTweet(): Response
+    public function saveTweet(Request $request): Response
     {
-        $this->model->save($_POST['author'], $_POST['content']);
+        if ($response = $this->requestValidator->validateFields($request, $this->requiredFields)) {
+            return $response;
+        }
+
+        $this->model->save($request->get('author'), $request->get('content'));
 
         // On retourne une réponse vide, dont le status est 302 (redirection)
         // et dont l'adresse de redirection est "/"
