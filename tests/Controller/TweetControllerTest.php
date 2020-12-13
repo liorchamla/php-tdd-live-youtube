@@ -91,4 +91,109 @@ class TweetControllerTest extends TestCase
             ]
         ];
     }
+
+    /** @test */
+    public function we_can_delete_a_tweet_with_its_id()
+    {
+        // Etant donné qu'un tweet existe dans la base de données
+        $tweetId = $this->tweetModel->save("Lior", "Un tweet de test");
+
+        // Et que j'ai un paramètre ID dans la requête HTTP
+        $request = new Request([
+            'id' => $tweetId
+        ]);
+
+        // Quand j'appelle le controller
+        $response = $this->controller->deleteTweet($request);
+
+        // Alors la réponse doit être au statut 302 (Redirection)
+        $this->assertEquals(302, $response->getStatusCode());
+        // Et la location dans les entêtes doit être "/"
+        $this->assertEquals('/', $response->getHeader('Location'));
+        // Et le tweet ne doit plus exister
+        $results = $this->pdo->query("SELECT t.* FROM tweet t WHERE id = $tweetId");
+        $this->assertEquals(0, $results->rowCount());
+    }
+
+    /** @test */
+    public function we_cant_delete_a_tweet_with_no_id()
+    {
+        // Etant donné qu'on ne donne rien dans la requête
+        $request = new Request(); // Donc pas d'identifiant de tweet
+
+        // Quand j'appelle le controller
+        $response = $this->controller->deleteTweet($request);
+
+        // Alors la réponse devrait avoir un statut 400
+        $this->assertEquals(400, $response->getStatusCode());
+        // Et le contenu devrait être "Vous devez spécifier l'identifiant du tweet à supprimer"
+        $this->assertEquals("Vous devez spécifier l'identifiant du tweet à supprimer", $response->getContent());
+    }
+
+    /** @test */
+    public function we_can_see_a_tweet_with_its_id()
+    {
+        // Etant donné un tweet en base de données
+        $tweetId = $this->tweetModel->save("Lior", "Un tweet");
+
+        // Et un paramètre id dans la request
+        $request = new Request([
+            'id' => $tweetId
+        ]);
+
+        // Quand j'appelle mon controller pour afficher un tweet
+        $response = $this->controller->displayTweet($request);
+
+        // Alors le statut de la response doit être 200 (OK)
+        $this->assertEquals(200, $response->getStatusCode());
+        // Et le contenu de la response doit contenir l'auteur du tweet et son contenu
+        $this->assertStringContainsString('Lior', $response->getContent());
+        $this->assertStringContainsString('Un tweet', $response->getContent());
+
+        // On renouvelle le test avec un autre tweet
+        $tweetId2 = $this->tweetModel->save("Magali", "Un autre tweet");
+        $response2 = $this->controller->displayTweet(new Request(['id' => $tweetId2]));
+
+        // Alors le statut de la response doit être 200 (OK)
+        $this->assertEquals(200, $response2->getStatusCode());
+        // Et le contenu de la response doit contenir l'auteur du tweet et son contenu
+        $this->assertStringContainsString('Magali', $response2->getContent());
+        $this->assertStringContainsString('Un autre tweet', $response2->getContent());
+    }
+
+    /** @test */
+    public function we_cant_see_an_unexisting_tweet()
+    {
+        // Etant donné une requête pour un tweet inexistant
+        $request = new Request(['id' => 42]);
+
+        // Quand j'appelle le controller pour afficher ce tweet
+        $response = $this->controller->displayTweet($request);
+
+        // Alors la response devrait avoir le statut 404
+        $this->assertEquals(404, $response->getStatusCode());
+        // Et le message devrait être "Aucun tweet ne possède l'identifiant 42"
+        $this->assertEquals("Aucun tweet ne possède l'identifiant 42", $response->getContent());
+    }
+
+    /** @test */
+    public function we_can_see_all_tweets()
+    {
+        // Etant donné un nombre aléatoire de tweets
+        $count = mt_rand(3, 20);
+        for ($i = 0; $i < $count; $i++) {
+            $this->tweetModel->save("Author $i", "Content $i");
+        }
+
+        // Quand j'appelle mon controller pour afficher la liste
+        $response = $this->controller->displayAllTweets();
+
+        // Alors la response devrait avoir le statut 200
+        $this->assertEquals(200, $response->getStatusCode());
+        // Et on devrait retrouver les auteurs et contenus des tweets dans la response
+        for ($i = 0; $i < $count; $i++) {
+            $this->assertStringContainsString("Author $i", $response->getContent());
+            $this->assertStringContainsString("Content $i", $response->getContent());
+        }
+    }
 }
